@@ -1,0 +1,64 @@
+#12330283 苏晓航等 一组
+#
+#hPModule.py 里面记录输入文件的行数sample_number，需要时修改
+#请确认hadoop用户主文件夹program中临时文件已清理
+
+hadoop namenode -format
+hadoop datanode -format
+
+start-all.sh
+
+#统一hdfs文件路径为hdfs://master:9000/hadoop/
+
+hadoop fs -put /home/kiadragon/hadoop/hadoop-project/Hierarchy_d2D_10000.txt /hadoop/input
+
+#第一次MAP_REDUCE ESTIMATE
+hadoop jar /usr/local/hadoop/contrib/streaming/hadoop-streaming-1.0.4.jar \
+-D mapred.job.name="Estimate" \
+-D mapred.reduce.tasks=1 \
+-input /hadoop/input \
+-output /hadoop/Estimate/output \
+-mapper /home/kiadragon/hadoop/hadoop-project/Mapper-Estimate.py \
+-reducer /home/kiadragon/hadoop/hadoop-project/Reducer-Estimate.py \
+-file /home/kiadragon/hadoop/hadoop-project/Mapper-Estimate.py \
+-file /home/kiadragon/hadoop/hadoop-project/Reducer-Estimate.py \
+-file /home/kiadragon/hadoop/hadoop-project/hPModule.py \
+
+#取出REDUCE文件part-00000作为下一次的输入
+hadoop fs -get /hadoop/Estimate/output/part-00000 /home/kiadragon/hadoop/hadoop-project/Estimate/output/
+
+#清除第一次的输出文件
+hadoop fs -rmr /hadoop/output
+
+#第二次MAP_REDUCE MATERIALIZE
+hadoop jar /usr/local/hadoop/contrib/streaming/hadoop-streaming-1.0.4.jar \
+-D mapred.job.name="Materialize" \
+-D mapred.reduce.tasks=10  \
+-D map.output.key.field.separator=',' \
+-D num.key.fields.for.partirion=1 \
+-partitioner org.apache.hadoop.mapred.lib.KeyFieldBasedPartitioner \
+-input /hadoop/input \
+-output /hadoop/Materialize/output \
+-mapper /home/kiadragon/hadoop/hadoop-project/Mapper-Materialize.py \
+-reducer /home/kiadragon/hadoop/hadoop-project/Reducer-Materialize.py \
+-file /home/kiadragon/hadoop/hadoop-project/Mapper-Materialize.py \
+-file /home/kiadragon/hadoop/hadoop-project/Reducer-Materialize.py \
+-file /home/kiadragon/hadoop/hadoop-project/hPModule.py \
+-file /home/kiadragon/hadoop/hadoop-project/Estimate/output/part-00000
+
+#第三次MAP_REDUCE POSTPROCESS
+#注意 input 是上一次 MAP_REDUCE 的输出结果
+hadoop jar /usr/local/hadoop/contrib/streaming/hadoop-streaming-1.0.4.jar \
+-D mapred.job.name="Postprocess" \
+-D mapred.reduce.tasks=1  \
+-input /hadoop/input \
+-output /hadoop/Postprocess/output \
+-mapper /home/kiadragon/hadoop/hadoop-project/Mapper-Postprocess.py \
+-reducer /home/kiadragon/hadoop/hadoop-project/Reducer-Postprocess.py \
+-file /home/kiadragon/hadoop/hadoop-project/Mapper-Postprocess.py \
+-file /home/kiadragon/hadoop/hadoop-project/Reducer-Postprocess.py \
+-file /home/kiadragon/hadoop/hadoop-project/hPModule.py \
+
+
+
+
